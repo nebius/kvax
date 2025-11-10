@@ -24,8 +24,8 @@ from kvax.utils.typing import AttentionMask, DeviceArray, Specs
 
 logger = logging.getLogger(__name__)
 
-LOG2_CONST: tl.constexpr = 1.4426950408889634  # = 1.0 / ln(2)
-NEG_INF: tl.constexpr = jnp.iinfo(jnp.int32).min
+LOG2_CONST = tl.constexpr(1.4426950408889634)  # = 1.0 / ln(2)
+NEG_INF = tl.constexpr(jnp.iinfo(jnp.int32).min)
 
 
 @triton.jit
