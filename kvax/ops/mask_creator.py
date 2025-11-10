@@ -452,7 +452,7 @@ def create_attention_mask(
     # Compute attention mask for backward kernel if needed
     if calc_bwd_mask:
         if bwd_params is None:
-            get_default_flash_attention_params(backward=True)
+            bwd_params = get_default_flash_attention_params(backward=True)
 
         query_block_size_dkdv = bwd_params.query_block_size
         kv_block_size_dkdv = bwd_params.kv_block_size
