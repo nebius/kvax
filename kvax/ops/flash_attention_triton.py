@@ -1603,10 +1603,13 @@ def flash_attention_backward(
     chex.assert_shape([query_positions, query_segment_ids], [batch_size, query_seq_len])
     chex.assert_shape([kv_positions, kv_segment_ids], [batch_size, kv_seq_len])
 
-    # Check if we don't need padding during training
+    # Check if we don't need padding during training.
+    # The block sizes are swapped for the dquery kernel (see below), so both
+    # sequence lengths must be divisible by both block sizes.
     chex.assert_is_divisible(query_seq_len, bwd_params.query_block_size)
     chex.assert_is_divisible(kv_seq_len, bwd_params.kv_block_size)
-    chex.assert_is_divisible(kv_seq_len, bwd_params.kv_block_size)
+    chex.assert_is_divisible(query_seq_len, bwd_params.kv_block_size)
+    chex.assert_is_divisible(kv_seq_len, bwd_params.query_block_size)
 
     # We swap here query and kv block sizes for kv and query calculate
     # stagers due to performance
@@ -1620,7 +1623,13 @@ def flash_attention_backward(
     grid = (num_kv_blocks, batch_size, num_heads)
 
     is_context_parallelism = context_parallelism_mesh_axis_name is not None
-    use_separate_kernel_impl = is_context_parallelism
+    # The combined backward kernel shares the kv-block grid between the dkdv and
+    # dquery computations, which requires matching numbers of query and kv
+    # blocks. Fall back to separate kernel launches when they differ (e.g. when
+    # query_seq_len != kv_seq_len).
+    use_separate_kernel_impl = (
+        is_context_parallelism or num_query_blocks != num_kv_blocks
+    )
 
     if is_context_parallelism:
         query_chunk_idx = jax.lax.axis_index(context_parallelism_mesh_axis_name)
