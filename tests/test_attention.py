@@ -268,18 +268,18 @@ def _flash_attention_backward_func(
         q_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dquery_triton
     )
     dkey_triton = jnp.where(
-        q_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dkey_triton
+        kv_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dkey_triton
     )
     dvalue_triton = jnp.where(
-        q_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dvalue_triton
+        kv_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dvalue_triton
     )
 
     dquery_ref = jnp.where(
         q_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dquery_ref
     )
-    dkey_ref = jnp.where(q_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dkey_ref)
+    dkey_ref = jnp.where(kv_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dkey_ref)
     dvalue_ref = jnp.where(
-        q_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dvalue_ref
+        kv_sids[:, :, None, None] == PADDING_SEGMENT_ID, 0, dvalue_ref
     )
 
     result_ref = dquery_ref, dkey_ref, dvalue_ref
@@ -395,6 +395,10 @@ def test_flash_multi_head_attention(
         (256, 256, 16, 1, 128, 128, 0, False, False, True),
         (256, 256, 16, 8, 128, 128, 0, False, True, False),
         (256, 256, 16, 8, 128, 128, 0, False, True, True),
+        # query_seq_len != kv_seq_len exercises the separate backward kernel
+        # launches (num_query_blocks != num_kv_blocks).
+        (384, 256, 8, 8, 64, 64, 0, False, False, False),
+        (256, 384, 8, 8, 64, 64, 0, False, False, False),
     ],
 )
 def test_flash_multi_head_attention_backward(
